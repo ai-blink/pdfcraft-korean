@@ -1,11 +1,11 @@
 PdfCraft portable mode
 
-While this file sits next to pdfcraft.exe, PdfCraft keeps its settings, log files, crash-recovery
+While this file sits next to pdfcraft-korean.exe, PdfCraft keeps its settings, log files, crash-recovery
 autosaves and new digital IDs in the PdfCraftData folder beside it, and writes nothing to
 %APPDATA% or %LOCALAPPDATA%. Copy the whole folder to move PdfCraft with its settings.
 
-Delete this file to use the normal per-user folders (%APPDATA%\PdfCraft and
-%LOCALAPPDATA%\PdfCraft) instead. If PdfCraftData can't be written (for example on a read-only
+Delete this file to use the normal per-user folders (%APPDATA%\PdfCraftKorean and
+%LOCALAPPDATA%\PdfCraftKorean) instead. If PdfCraftData can't be written (for example on a read-only
 drive), PdfCraft says so and uses the per-user folders instead.
 
 Opening PDF files with this copy
@@ -13,7 +13,7 @@ Opening PDF files with this copy
 The portable copy doesn't register itself with Windows, so picking it under "Open with" may not
 stick. To offer it in Settings > Apps > Default apps, open PowerShell in this folder and run:
 
-  $exe = (Resolve-Path .\pdfcraft.exe).Path
+  $exe = (Resolve-Path .\pdfcraft-korean.exe).Path
   $c = "HKCU:\Software\Classes"
   $cap = "HKCU:\Software\PdfCraftKorean.Portable\Capabilities"
   foreach ($k in "$c\PdfCraftKorean.Portable\shell\open\command", "$c\.pdf\OpenWithProgids",

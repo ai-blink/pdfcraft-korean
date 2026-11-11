@@ -169,7 +169,7 @@ impl RecoveryStore {
 
     /// `Recovery` in the portable data folder in portable mode ([`crate::portable`]), otherwise
     /// the platform's per-user data folder: `~/Library/Application Support/PdfCraft/Recovery`
-    /// (macOS), `%LOCALAPPDATA%\PdfCraft\Recovery` (Windows), or
+    /// (macOS), `%LOCALAPPDATA%\PdfCraftKorean\Recovery` (Windows), or
     /// `$XDG_DATA_HOME/pdfcraft/recovery` / `~/.local/share/pdfcraft/recovery` (others).
     pub fn default_dir() -> Option<PathBuf> {
         if let Some(dir) = crate::portable::data_dir() {
@@ -179,7 +179,7 @@ impl RecoveryStore {
         if cfg!(target_os = "macos") {
             env("HOME").map(|h| h.join("Library/Application Support/PdfCraft/Recovery"))
         } else if cfg!(windows) {
-            env("LOCALAPPDATA").map(|d| d.join("PdfCraft").join("Recovery"))
+            env("LOCALAPPDATA").map(|d| windows_data_path(d, "Recovery"))
         } else {
             env("XDG_DATA_HOME").or_else(|| env("HOME").map(|h| h.join(".local/share"))).map(|d| d.join("pdfcraft/recovery"))
         }
@@ -188,6 +188,11 @@ impl RecoveryStore {
     pub fn dir(&self) -> &Path {
         &self.dir
     }
+}
+
+/// Windows runtime data belongs to this derivative, including non-portable fallback paths.
+pub(crate) fn windows_data_path(base: PathBuf, leaf: &str) -> PathBuf {
+    base.join("PdfCraftKorean").join(leaf)
 }
 
 /// The OCR Verify screen's per-language user dictionary folder, next to the recovery store:
@@ -202,7 +207,7 @@ pub fn default_dictionary_dir() -> Option<PathBuf> {
     if cfg!(target_os = "macos") {
         env("HOME").map(|h| h.join("Library/Application Support/PdfCraft/Dictionary"))
     } else if cfg!(windows) {
-        env("LOCALAPPDATA").map(|d| d.join("PdfCraft").join("Dictionary"))
+        env("LOCALAPPDATA").map(|d| windows_data_path(d, "Dictionary"))
     } else {
         env("XDG_DATA_HOME").or_else(|| env("HOME").map(|h| h.join(".local/share"))).map(|d| d.join("pdfcraft/dictionary"))
     }
@@ -501,6 +506,21 @@ impl PdfCraftApp {
 
 #[cfg(test)]
 mod idle_tests {
+
+    #[test]
+    fn windows_fork_recovery_claim_leaves_upstream_data_untouched() {
+        let fixture = TestDir::new();
+        let official = fixture.path().join("PdfCraft").join("Recovery");
+        std::fs::create_dir_all(&official).unwrap();
+        let original = official.join("unsaved.pdf");
+        std::fs::write(&original, b"original unsaved document").unwrap();
+        let store = RecoveryStore::new(windows_data_path(fixture.path().to_path_buf(), "Recovery"));
+        store.claim();
+        assert_eq!(store.dir(), fixture.path().join("PdfCraftKorean").join("Recovery"));
+        assert!(store.list().is_empty());
+        assert_eq!(std::fs::read(original).unwrap(), b"original unsaved document");
+        assert_ne!(windows_data_path(fixture.path().to_path_buf(), "Dictionary"), fixture.path().join("PdfCraft").join("Dictionary"));
+    }
     use super::*;
     use std::time::Duration;
 

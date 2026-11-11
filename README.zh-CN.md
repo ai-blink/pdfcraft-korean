@@ -2,6 +2,10 @@
 
 [English](README.md) · [한국어](README.ko.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
+## Windows 下载
+
+[Windows x64 预览版 — 0.18.2-korean.1](https://github.com/ai-blink/pdfcraft-korean/releases/tag/v0.18.2-korean.1)。解压便携 ZIP 后运行 `pdfcraft-korean.exe`，或使用 MSI 安装包。软件包未签名，需手动更新。
+
 **由 [@ai-blink](https://github.com/ai-blink) 改进的韩语 PDF 文本编辑项目。**
 
 这是基于 [PdfCraft](https://github.com/storytold/pdfcraft) 的独立衍生项目，重点改进现有韩语文本的编辑，以及保存、重新打开、搜索、选择和复制流程。原有 PDF 引擎、应用及先前贡献的著作权仍归各自作者所有。
@@ -32,7 +36,7 @@
 4. 检查渲染，搜索 `한글 편집`，再选择并复制句子。
 5. 将实际剪贴板与合成后的预期字符串比对，并重复测试分解字母及汉字混合句子。
 
-现代韩文字母会在保存和复制时合成。这不是完整的 NFC/NFKC 规范化，也不保证任意分解形式搜索词的等价性。当前 Web 字体子集不含韩文字体，因此 wasm 构建通过不代表 Web 韩语编辑可用。本仓库尚未提供包含这些变更的新安装包或发行版。
+现代韩文字母会在保存和复制时合成。这不是完整的 NFC/NFKC 规范化，也不保证任意分解形式搜索词的等价性。当前 Web 字体子集不含韩文字体，因此 wasm 构建通过不代表 Web 韩语编辑可用。其他平台仅提供源码。
 
 ## 来源与许可
 

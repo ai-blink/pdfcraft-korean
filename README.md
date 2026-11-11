@@ -2,6 +2,10 @@
 
 [English](README.md) · [한국어](README.ko.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
+## Windows download
+
+[Windows x64 preview — 0.18.2-korean.1](https://github.com/ai-blink/pdfcraft-korean/releases/tag/v0.18.2-korean.1). Extract the portable ZIP and run `pdfcraft-korean.exe`, or use the MSI installer. These packages are unsigned; updates are manual. Other platforms are source-only.
+
 **Korean PDF text-editing improvements by [@ai-blink](https://github.com/ai-blink).**
 
 An independent derivative of [PdfCraft](https://github.com/storytold/pdfcraft), focused on editing existing Korean text and preserving it through save, reopen, search, selection and copy. The original PDF engine, application and earlier contributions remain the work of their respective authors.
@@ -43,7 +47,7 @@ cargo run --locked --release -p pdfcraft -- example.pdf
 
 The fonts are a build input, not files copied from installed commercial software. Keep both checkouts at the pinned revisions. The font pin comes from the inherited release configuration; the translation pin is recorded in [craft-i18n.rev](craft-i18n.rev). See [font behavior](crates/fonts/README.md) for details.
 
-**Desktop scope:** the current wasm font subset does not include a Korean face. Passing the wasm build check does not establish Korean editing support in the web app. This repository does not currently provide a new packaged release; upstream downloads are not builds of these changes.
+**Desktop scope:** the current wasm font subset does not include a Korean face. Passing the wasm build check does not establish Korean editing support in the web app. Upstream downloads are not builds of these changes.
 
 ## Try the editing flow
 

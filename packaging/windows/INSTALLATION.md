@@ -39,9 +39,8 @@ reconciled before publication. Nothing here changes macOS/Linux native packaging
 This fork uses its own MSI UpgradeCode, component identities, `Software\PdfCraftKorean`
 registration, `pdfcraft-korean.exe` installed filename and `ai-blink\PdfCraft Korean`
 installation folder. It must not upgrade or reuse the official PdfCraft installation.
-The portable build retains the source binary filename `pdfcraft.exe`.
+The delivered portable executable is also `pdfcraft-korean.exe`; the Cargo build target remains `pdfcraft.exe`. Windows settings, logs, recovery and IPC use the separate `PdfCraftKorean` namespace.
 
-No fork installer has been released or installation-tested. Linux and macOS packaging
+Windows release validation is recorded in its GitHub release notes. Linux and macOS packaging
 retain upstream package/application identifiers and need separate identity isolation and
-platform-specific installation verification before distributing installers. Source builds
-are intended for isolated testing; this source publication is not an installer release.
+platform-specific installation verification before distributing installers. Only Windows x64 is packaged in the initial preview release. Unsigned packages require manual updates.

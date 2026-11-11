@@ -768,3 +768,12 @@ fn start_up_and_the_panic_hook_never_use_eprintln() {
         offenders.join("\n")
     );
 }
+
+#[cfg(windows)]
+#[test]
+fn windows_fork_preferences_do_not_use_official_app_storage() {
+    assert_ne!(eframe::storage_dir(super::storage_name()), eframe::storage_dir("PdfCraft"));
+    if pdfcraft_ui_egui::portable::data_dir().is_none() {
+        assert_eq!(super::settings_dir(), eframe::storage_dir("PdfCraftKorean"));
+    }
+}

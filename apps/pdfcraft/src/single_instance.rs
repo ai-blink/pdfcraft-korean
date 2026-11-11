@@ -4,7 +4,7 @@
 //! Outlook attachments, Explorer double-clicks and Open With all start `pdfcraft.exe "<file>"`, and
 //! a file manager or `xdg-open` starts `pdfcraft <file>` the same way, so until now every file got
 //! its own process and window. The first PdfCraft listens on a Unix domain socket. On Windows (10
-//! 1803 and later) it is in `%LOCALAPPDATA%\PdfCraft` (a portable copy's too, as
+//! 1803 and later) it is in `%LOCALAPPDATA%\PdfCraftKorean` (a portable copy's too, as
 //! `portable-instance-…` and never in its own folder, #889) and is named after the Windows
 //! session (`instance-s1.sock` for session 1), so two sign-ins of the same
 //! user never open files in each other's windows. On Linux and the BSDs it is in
@@ -175,7 +175,7 @@ pub fn claim(files: &[String], may_hand_off: bool, combine: bool) -> Claim {
     }
 }
 
-/// The socket in `%LOCALAPPDATA%\PdfCraft` (beside the crash-recovery folder); none when
+/// The socket in `%LOCALAPPDATA%\PdfCraftKorean` (beside the crash-recovery folder); none when
 /// `%LOCALAPPDATA%` is unset.
 #[cfg(windows)]
 fn socket_path() -> Option<std::path::PathBuf> {
@@ -184,8 +184,16 @@ fn socket_path() -> Option<std::path::PathBuf> {
     // user's file paths or send it files to open. A portable copy uses it too (#889), under its
     // own name so it never hands files to an installed copy (which keeps its settings elsewhere).
     // Never the portable folder itself: it may sit where other accounts can write (`C:\Tools`).
-    let name = if pdfcraft_ui_egui::portable::data_dir().is_some() { format!("portable-{name}") } else { name };
-    std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty()).map(|d| std::path::PathBuf::from(d).join("PdfCraft").join(name))
+    std::env::var_os("LOCALAPPDATA")
+        .filter(|v| !v.is_empty())
+        .map(|d| windows_socket_path(std::path::Path::new(&d), &name, pdfcraft_ui_egui::portable::data_dir().is_some()))
+}
+
+/// Keep both installed and portable launches out of the official app's IPC namespace.
+#[cfg(any(windows, test))]
+fn windows_socket_path(base: &std::path::Path, name: &str, portable: bool) -> std::path::PathBuf {
+    let name = if portable { format!("portable-{name}") } else { name.to_owned() };
+    base.join("PdfCraftKorean").join(name)
 }
 
 /// The socket in `$XDG_RUNTIME_DIR/pdfcraft`; none when `$XDG_RUNTIME_DIR` is unset. Never `/tmp`
@@ -376,6 +384,26 @@ fn receive(stream: &UnixStream, server: &Server) -> std::io::Result<()> {
 
 #[cfg(test)]
 mod tests {
+
+    #[cfg(any(windows, all(unix, not(target_os = "macos"))))]
+    #[test]
+    fn windows_fork_socket_does_not_handoff_to_an_official_install_or_portable_copy() {
+        for portable in [false, true] {
+            let base = std::env::temp_dir().join(format!("pfk{}{}", std::process::id(), u8::from(portable)));
+            let name = if portable { "portable-i.sock" } else { "i.sock" };
+            let official = base.join("PdfCraft").join(name);
+            let Claim::Primary(upstream) = claim_at(&official, &[], true, false) else { panic!("official fixture listens") };
+            let mut upstream_poll = upstream.connect(&egui::Context::default(), false);
+            let fork = super::windows_socket_path(&base, "i.sock", portable);
+            let Claim::Primary(derivative) = claim_at(&fork, &[], true, false) else { panic!("fork must get its own window") };
+            let mut fork_poll = derivative.connect(&egui::Context::default(), false);
+            assert!(matches!(claim_at(&fork, &["korean.pdf".into()], true, false), Claim::HandedOff));
+            assert!(matches!(fork_poll().as_slice(), [OsEvent::Open(p)] if p == &["korean.pdf"]));
+            assert!(upstream_poll().is_empty(), "the official app must not receive the fork's document");
+            drop((upstream, derivative));
+            std::fs::remove_dir_all(base).unwrap();
+        }
+    }
     use super::*;
 
     #[test]

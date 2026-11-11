@@ -22,6 +22,10 @@
 param(
   [ValidateSet('x64', 'x86', 'arm64')] [string] $Arch = 'x64',
   [switch] $SkipBuild,
+  [ValidateSet('msvc', 'gnu')] [string] $Toolchain = 'msvc',
+  [string] $ModelsDirectory,
+  [string] $DependencyNoticesDirectory,
+  [switch] $SkipSmokeTest,
   # -SkipBuild only: the existing binaries were built without CRAFT_FONTS_DIR, so they embed no
   # craft-fonts faces. Without CRAFT_FONTS_DIR this assertion is required: package.ps1 cannot
   # otherwise know whether the binaries need the fonts' OFL notices.
@@ -60,6 +64,10 @@ if (-not $Version) { throw 'could not read [workspace.package] version from Carg
 $MsiVersion = ($Version -split '-')[0]
 
 $Target = switch ($Arch) { 'x64' { 'x86_64-pc-windows-msvc' } 'x86' { 'i686-pc-windows-msvc' } 'arm64' { 'aarch64-pc-windows-msvc' } }
+if ($Toolchain -eq 'gnu') {
+  if ($Arch -ne 'x64' -or -not $SkipBuild) { throw 'GNU packaging currently requires -Arch x64 -SkipBuild after the cross-build.' }
+  $Target = 'x86_64-pc-windows-gnu'
+}
 $Dist = if ($env:DIST) { $env:DIST } else { Join-Path $Root 'dist\release' }
 $TargetDir = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { Join-Path $Root 'target' }
 New-Item -ItemType Directory -Force -Path $Dist | Out-Null
@@ -98,7 +106,7 @@ foreach ($check in @(@('pdfcraft.exe', 2), @('pdfcraft-cli.exe', 3))) {
   Write-Output "ok $($check[0]): $Arch, PE subsystem $($h.Subsystem)"
 }
 $Stage = Join-Path $TargetDir "windows-package\$Arch"
-Remove-Item -Recurse -Force $Stage -ErrorAction SilentlyContinue
+if (Test-Path -LiteralPath $Stage) { throw 'Package staging directory already exists; use a fresh CARGO_TARGET_DIR.' }
 New-Item -ItemType Directory -Force -Path $Stage | Out-Null
 Copy-Item (Join-Path $Bin 'pdfcraft.exe'), (Join-Path $Bin 'pdfcraft-cli.exe') $Stage
 # The document icon embeds Lucide artwork: carry its ISC notice and the project licences
@@ -116,7 +124,10 @@ Copy-Item (Join-Path $Root 'assets\app-icon\LICENSE-document.txt') $Stage
 $Models = Join-Path $Stage 'models'
 New-Item -ItemType Directory -Force -Path $Models | Out-Null
 Push-Location $Root
-try { Invoke-Native 'cargo xtask models' { cargo xtask models $Models } } finally { Pop-Location }
+try {
+  if ($ModelsDirectory) { Copy-Item -Path (Join-Path $ModelsDirectory '*') -Destination $Models -Recurse }
+  else { Invoke-Native 'cargo xtask models' { cargo xtask models $Models } }
+} finally { Pop-Location }
 Remove-Item -Force (Join-Path $Models '*.part') -ErrorAction SilentlyContinue
 if (-not (Test-Path (Join-Path $Models 'ATTRIBUTION.txt')) -or -not (Get-ChildItem (Join-Path $Models '*.LICENCE.txt'))) {
   throw "no OCR models in $Models after cargo xtask models"
@@ -139,13 +150,24 @@ if ($env:CRAFT_FONTS_DIR) {
 }
 # ---- end font notices for the MSI --------------------------------------------------------------
 
+# Full source and dependency notices accompany both distributions.
+$Notices = Join-Path $Stage 'licenses'
+if (-not $DependencyNoticesDirectory) {
+  $DependencyNoticesDirectory = Join-Path $TargetDir 'dependency-notices'
+  Invoke-Native 'collect dependency notices' { python (Join-Path $PSScriptRoot 'collect-licenses.py') --repo $Root --destination $DependencyNoticesDirectory --target $Target }
+}
+if (-not (Test-Path -LiteralPath (Join-Path $DependencyNoticesDirectory 'inventory.json'))) {
+  throw 'DependencyNoticesDirectory needs the inventory from collect-licenses.py.'
+}
+Copy-Item -LiteralPath $DependencyNoticesDirectory -Destination $Notices -Recurse
+
 # ---- MSI ---------------------------------------------------------------------------------------
-$Msi = Join-Path $Dist "pdfcraft-$Version-windows-$Arch.msi"
+$Msi = Join-Path $Dist "pdfcraft-korean-$Version-windows-$Arch.msi"
 Invoke-Native 'wix build' {
   wix build (Join-Path $PSScriptRoot 'pdfcraft.wxs') -arch $Arch `
     (Join-Path $PSScriptRoot 'installer-ui.wxs') `
     -d "Version=$MsiVersion" -d "BinDir=$Stage" -d "ModelsDir=$Models" -d "IconPath=$(Join-Path $Root 'assets\app-icon\pdfcraft.ico')" `
-    -d "DocsDir=$Docs" -d "HasCraftFontLicences=$HasCraftFontLicences" `
+    -d "SourceLicensesDir=$Notices" -d "DocsDir=$Docs" -d "HasCraftFontLicences=$HasCraftFontLicences" `
     -o $Msi
 }
 # Inspect the built MSI, not just the XML, before signing/publishing it. In a child process, so
@@ -162,13 +184,14 @@ Remove-Item -Force -ErrorAction SilentlyContinue ([IO.Path]::ChangeExtension($Ms
 
 # ---- portable zip ------------------------------------------------------------------------------
 $Portable = Join-Path $TargetDir "windows-package\pdfcraft-$Version-windows-$Arch-portable"
-Remove-Item -Recurse -Force $Portable -ErrorAction SilentlyContinue
+if (Test-Path -LiteralPath $Portable) { throw 'Portable staging directory already exists; use a fresh CARGO_TARGET_DIR.' }
 New-Item -ItemType Directory -Force -Path $Portable | Out-Null
-Copy-Item (Join-Path $Stage '*.exe') $Portable
+Copy-Item -Path (Join-Path $Stage '*') -Destination $Portable -Recurse
+Rename-Item -LiteralPath (Join-Path $Portable 'pdfcraft.exe') -NewName 'pdfcraft-korean.exe'
 foreach ($f in 'NOTICE', 'LICENSE-document.txt') {
   Copy-Item (Join-Path $Stage $f) $Portable
 }
-Copy-Item -Recurse $Models (Join-Path $Portable 'models')
+# Models and full notices were copied with the staging directory.
 foreach ($f in 'README.md', 'LICENSE', 'LICENSE-MIT', 'LICENSE-APACHE') {
   $p = Join-Path $Root $f
   if (Test-Path $p) { Copy-Item $p $Portable }
@@ -182,14 +205,14 @@ if ($HasCraftFontLicences -eq 1) {
 # digital IDs go to PdfCraftData\ next to the exe instead of %APPDATA% (#157; see
 # crates/ui-egui/src/portable.rs).
 Copy-Item (Join-Path $PSScriptRoot 'portable.txt') $Portable
-$Zip = Join-Path $Dist "pdfcraft-$Version-windows-$Arch-portable.zip"
+$Zip = Join-Path $Dist "pdfcraft-korean-$Version-windows-$Arch-portable.zip"
 Remove-Item -Force $Zip -ErrorAction SilentlyContinue
 Compress-Archive -Path $Portable -DestinationPath $Zip
 
 # Smoke-test the CLI when this machine can run it. An ARM64 build made on an x64 runner can't run
 # here; .github/workflows/windows-arm64.yml installs and runs it on ARM64 instead.
 $HostArch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
-if ($Arch -ne 'arm64' -or $HostArch -eq 'arm64') {
+if (-not $SkipSmokeTest -and ($Arch -ne 'arm64' -or $HostArch -eq 'arm64')) {
   Invoke-Native 'pdfcraft-cli --version' { & (Join-Path $Stage 'pdfcraft-cli.exe') --version }
 } else {
   Write-Output "skipping pdfcraft-cli --version: an $Arch build doesn't run on this $HostArch machine"
