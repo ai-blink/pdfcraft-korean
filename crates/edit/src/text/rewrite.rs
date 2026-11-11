@@ -1,10 +1,12 @@
-use super::blocks::{BlockStyle, TextBlock, paragraph_separator, row_break, wrap};
+use super::blocks::{BlockStyle, RangeStyle, TextBlock, paragraph_separator, row_break, wrap};
 use super::fallback::{
-    Encoder, MAX_TYPE3_GLYPHS, Type3Fallback, Type3Run, drop_unused_fallback_fonts, is_variation_selector, needs_type3, no_japanese_font,
-    source_encodes, source_family, source_program_completes, source_show, source_space, source_width, type3_encode, type3_font,
+    Encoder, MAX_TYPE3_GLYPHS, Type3Fallback, Type3Run, compose_hangul, composed_offset, drop_unused_fallback_fonts, is_variation_selector,
+    needs_type3, no_japanese_font, source_encodes, source_family, source_program_completes, source_show, source_space, source_width, type3_encode,
+    type3_font,
 };
 use super::interp::{Carry, Origin, TextState, interpret};
 use super::lines::{content_streams, joined, page_dict, rewritten_contents, splice, text_lines};
+use super::regions::validate_draft_before_composition;
 use super::{
     Dict, Document, EditError, HashMap, Matrix, Metrics, Object, Op, PdfString, TextLine, TextSession, alignment_frame, group_blocks, is_centred,
     parse, rewrite_changed_words, rewrite_styled_block,
@@ -43,6 +45,8 @@ fn refuse_clipping_text(lines: &[TextLine], dropped: &std::collections::HashSet<
 /// [`replace_line`] with the most unique characters one generated font may hold (tests lower it).
 pub(crate) fn replace_line_with_limit(doc: &mut Document, page: usize, line: usize, text: &str, max_glyphs: usize) -> Result<LineEdit, EditError> {
     let text = text.replace(row_break, " ");
+    // One glyph is drawn per character, so decomposed Hangul is composed into syllables first.
+    let text = compose_hangul(&text).map_or(text, |(composed, _)| composed);
     let lines = text_lines(doc, page)?;
     let target = lines.get(line).cloned().ok_or_else(|| EditError::Invalid(format!("page {} has no line {}", page + 1, line + 1)))?;
     target.ensure_editable()?;
@@ -814,6 +818,35 @@ fn source_font(doc: &Document, fonts_res: &Dict, font_name: &str, first: &TextLi
     SourceFont { metrics, reuse, space }
 }
 
+type ComposedDraft = (String, Vec<(usize, usize)>);
+
+/// Compose the same draft that the selected writer would read, including style-only edits.
+fn compose_block_draft(
+    doc: &Document,
+    page: usize,
+    lines: &[TextLine],
+    block: &TextBlock,
+    text: Option<&str>,
+    style: &BlockStyle,
+) -> Result<Option<ComposedDraft>, EditError> {
+    let draft = validate_draft_before_composition(block, text, style)?;
+    if let Some(text) = text.filter(|text| *text != block.text) {
+        return Ok(compose_hangul(text));
+    }
+    let editor = compose_hangul(draft);
+    if editor.is_none() {
+        return Ok(None);
+    }
+    // Keep the unchanged draft's row/reflow policy. The styled writer reads editor_text;
+    // the single-style writer reads text (joined rows). Normalization must not change that.
+    let p = page_dict(doc, page)?;
+    let res = p.dict.get(b"Resources").and_then(|r| doc.dict(r)).unwrap_or_default();
+    let fonts = res.get(b"Font").and_then(|r| doc.dict(r)).unwrap_or_default();
+    let members: Vec<&TextLine> = block.lines.iter().filter_map(|i| lines.get(*i)).collect();
+    let first = members.first().copied().ok_or_else(|| EditError::Invalid("the paragraph has no source runs".into()))?;
+    if choose_rewrite_path(doc, &fonts, block, &members, first, text, style)?.use_styled_path { Ok(editor) } else { Ok(compose_hangul(&block.text)) }
+}
+
 /// [`rewrite_block_with_limit`] with the page's [`text_lines`], read from `doc` as it is now.
 pub(crate) fn rewrite_block_from(
     doc: &mut Document,
@@ -826,6 +859,25 @@ pub(crate) fn rewrite_block_from(
 ) -> Result<LineEdit, EditError> {
     let blocks = group_blocks(&lines);
     let b = blocks.get(block).cloned().ok_or_else(|| EditError::Invalid(format!("page {} has no paragraph {}", page + 1, block + 1)))?;
+    // Style-only edits must compose source jamo too: otherwise the writer asks for isolated
+    // jamo glyphs instead of syllables. Ranges refer to the editor text and follow composition.
+    let style_only = text.is_none();
+    let composed = compose_block_draft(doc, page, &lines, &b, text, style)?;
+    let restyled;
+    let (text, style) = match &composed {
+        Some((composed, map)) => {
+            restyled = BlockStyle {
+                ranges: style
+                    .ranges
+                    .iter()
+                    .map(|r| RangeStyle { range: composed_offset(map, r.range.start)..composed_offset(map, r.range.end), ..r.clone() })
+                    .collect(),
+                ..style.clone()
+            };
+            (Some(composed.as_str()), &restyled)
+        }
+        None => (text, style),
+    };
     // Existing PDF paragraphs do not yet persist selected-row alignment intent. Refuse
     // that operation before writing anything; whole-paragraph `align` remains supported.
     if style.aligns.iter().any(Option::is_some) {
@@ -856,12 +908,12 @@ pub(crate) fn rewrite_block_from(
     if b.invisible {
         crate::check_on_top(doc, &p)?;
     }
-    if let Some(edit) = text.and_then(|draft| rewrite_changed_words(doc, page, &b, &lines, draft, style, max_glyphs)) {
+    if !style_only && let Some(edit) = text.and_then(|draft| rewrite_changed_words(doc, page, &b, &lines, draft, style, max_glyphs)) {
         return Ok(edit);
     }
     let mut res = p.dict.get(b"Resources").map(|r| doc.resolve(r)).and_then(|r| r.as_dict().cloned()).unwrap_or_default();
     let mut fonts_res = res.get(b"Font").map(|f| doc.resolve(f)).and_then(|f| f.as_dict().cloned()).unwrap_or_default();
-    let dispatch = choose_rewrite_path(doc, &fonts_res, &b, &members, first, text, style)?;
+    let dispatch = choose_rewrite_path(doc, &fonts_res, &b, &members, first, if style_only { None } else { text }, style)?;
     if dispatch.use_styled_path && style.align == Some(crate::added::Align::Justify) {
         return Err(EditError::Invalid("justification of mixed-style existing paragraphs is not supported".into()));
     }

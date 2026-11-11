@@ -626,10 +626,22 @@ fn replacement_text<'a>(block: &'a TextBlock, text: Option<&'a str>) -> Result<&
         Some(text) if text != block.text => text,
         _ => &block.editor_text,
     };
+    check_draft_size(draft)?;
+    Ok(draft)
+}
+
+fn check_draft_size(draft: &str) -> Result<(), EditError> {
     if draft.len() > 4_000_000 {
         return Err(EditError::Invalid("the replacement text is too large".into()));
     }
-    Ok(draft)
+    Ok(())
+}
+
+/// Composition must not repair invalid byte ranges or allocate a map for an oversized draft.
+/// Validate the original text first; the writer also checks the resulting composed ranges.
+pub(crate) fn validate_draft_before_composition<'a>(block: &'a TextBlock, text: Option<&'a str>, style: &BlockStyle) -> Result<&'a str, EditError> {
+    let draft = replacement_text(block, text)?;
+    validated_ranges(draft, style).map(|_| draft)
 }
 
 fn has_no_effective_style_change(block: &TextBlock, draft: &str, style: &BlockStyle) -> bool {

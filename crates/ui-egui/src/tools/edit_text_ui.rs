@@ -20,6 +20,10 @@ mod background;
 mod image;
 mod layout;
 
+#[cfg(test)]
+#[path = "edit_text_ui/hangul_tests.rs"]
+mod hangul_tests;
+
 pub(crate) use background::TextBackground;
 pub use image::{CropMode, DragTarget, ImageAction, ImageDrag, ImageHandle, ImageSelection};
 pub(crate) use image::{
@@ -109,6 +113,24 @@ pub struct LineEditor {
 /// of split view, which can show an editor in each.
 pub(crate) fn input_id(place: crate::panes::Place) -> egui::Id {
     egui::Id::unique(("edit-text-line-input", place))
+}
+
+/// Compose committed Hangul before TextEdit inserts it, so its caret, undo history and style
+/// selections all count the displayed syllables. Active IME preedit and other fields keep their
+/// original events; rewriting the buffer after insertion would invalidate that widget state.
+fn compose_committed_input(ctx: &egui::Context, input: egui::Id) {
+    if !ctx.memory(|memory| memory.has_focus(input)) {
+        return;
+    }
+    ctx.input_mut(|input| {
+        for event in &mut input.events {
+            if let egui::Event::Text(text) | egui::Event::Paste(text) = event
+                && let Some((composed, _)) = pdfcraft_engine::compose_hangul(text)
+            {
+                *text = composed;
+            }
+        }
+    });
 }
 
 /// The page text box `id` keeps its own Undo history, across every paragraph or box it has shown
@@ -1004,6 +1026,7 @@ pub(crate) fn overlay(ctx: &egui::Context, view: &mut DocView, info: &DocInfo) -
                 let before = ed.text.clone();
                 let input = input_id(place);
                 ed.claim_typing(ui.ctx(), view_id, place);
+                compose_committed_input(ui.ctx(), input);
                 let output = egui::TextEdit::multiline(&mut ed.text)
                     .id(input)
                     .font(font.clone())
@@ -1275,8 +1298,12 @@ C", &picked
 
     /// An app with one text document open, and an editor on its first paragraph.
     fn preview_app() -> (crate::PdfCraftApp, LineEditor) {
+        preview_app_with_text("Preview text")
+    }
+
+    pub(super) fn preview_app_with_text(text: &str) -> (crate::PdfCraftApp, LineEditor) {
         let mut app = crate::PdfCraftApp::new();
-        let bytes = app.session.create_from_text("Preview", "Preview text").unwrap();
+        let bytes = app.session.create_from_text("Preview", text).unwrap();
         app.open_bytes("preview.pdf", None, bytes.as_ref().clone()).unwrap();
         let doc = app.session.get(app.views[0].id).unwrap();
         let block = doc.text_blocks(0).remove(0);
