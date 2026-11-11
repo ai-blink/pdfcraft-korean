@@ -4,8 +4,8 @@
 
 .DESCRIPTION
   Produces, in $env:DIST (default: dist/release):
-    pdfcraft-<version>-windows-<arch>.msi            per-machine installer (WiX v5)
-    pdfcraft-<version>-windows-<arch>-portable.zip   pdfcraft.exe + pdfcraft-cli.exe + models\ + portable.txt
+    pdfcraft-korean-<version>-windows-<arch>.msi            per-machine installer (WiX v5)
+    pdfcraft-korean-<version>-windows-<arch>-portable.zip   pdfcraft.exe + pdfcraft-cli.exe + models\ + portable.txt
 
   The binaries link the C runtime statically (+crt-static), so neither the MSI nor the portable
   zip needs the Visual C++ redistributable. Signing is delegated to sign.ps1 (skipped with a
@@ -192,7 +192,7 @@ foreach ($f in 'NOTICE', 'LICENSE-document.txt') {
   Copy-Item (Join-Path $Stage $f) $Portable
 }
 # Models and full notices were copied with the staging directory.
-foreach ($f in 'README.md', 'LICENSE', 'LICENSE-MIT', 'LICENSE-APACHE') {
+foreach ($f in 'README.md', 'README.ko.md', 'README.zh-CN.md', 'README.ja.md', 'LICENSE', 'LICENSE-MIT', 'LICENSE-APACHE') {
   $p = Join-Path $Root $f
   if (Test-Path $p) { Copy-Item $p $Portable }
 }
@@ -215,6 +215,7 @@ $HostArch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.
 if (-not $SkipSmokeTest -and ($Arch -ne 'arm64' -or $HostArch -eq 'arm64')) {
   Invoke-Native 'pdfcraft-cli --version' { & (Join-Path $Stage 'pdfcraft-cli.exe') --version }
 } else {
-  Write-Output "skipping pdfcraft-cli --version: an $Arch build doesn't run on this $HostArch machine"
+  if ($SkipSmokeTest) { Write-Output 'CLI smoke test deferred to the authorized Windows guest.' }
+  else { Write-Output "skipping pdfcraft-cli --version: an $Arch build doesn't run on this $HostArch machine" }
 }
 Get-Item $Msi, $Zip | Format-Table Name, Length
