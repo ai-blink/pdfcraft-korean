@@ -1,16 +1,16 @@
-//! Where PdfCraft and the ArtCraft community live on the web. One table, so the Help menu, the
+//! Where PdfCraft Korean lives on the web. One table, so the Help menu, the
 //! About dialog, the home screen, the CLI and the README agree.
 
 use icu_properties::props::Script;
 use std::path::{Path, PathBuf};
 
-/// The app's name in ArtCraft URLs (`getartcraft.com/apps/{APP}`, `github.com/storytold/{APP}`).
-pub const APP: &str = "pdfcraft";
+/// The repository name of this independently maintained derivative.
+pub const APP: &str = "pdfcraft-korean";
 
-pub const DISCORD: &str = "https://discord.gg/artcraft";
-pub const WEBSITE: &str = "https://getartcraft.com";
-pub const APP_PAGE: &str = "https://getartcraft.com/apps/pdfcraft";
-pub const GITHUB: &str = "https://github.com/storytold/pdfcraft";
+pub const DISCORD: &str = "https://github.com/ai-blink/pdfcraft-korean/issues";
+pub const WEBSITE: &str = "https://github.com/ai-blink";
+pub const APP_PAGE: &str = "https://github.com/ai-blink/pdfcraft-korean#readme";
+pub const GITHUB: &str = "https://github.com/ai-blink/pdfcraft-korean";
 
 /// A link and the registry command that opens it.
 #[derive(Clone, Copy, Debug)]
@@ -22,12 +22,12 @@ pub struct Link {
     pub icon: &'static str,
 }
 
-/// In the order they are shown. Discord comes first: it is where people get help fastest.
+/// In display order. Legacy command IDs remain compatible with automation scripts.
 pub const LINKS: &[Link] = &[
-    Link { command: "help.discord", label: "Join the ArtCraft Discord", url: DISCORD, icon: "messages-square" },
-    Link { command: "help.app_page", label: "PdfCraft web page", url: APP_PAGE, icon: "globe" },
-    Link { command: "help.github", label: "PdfCraft on GitHub", url: GITHUB, icon: "code-xml" },
-    Link { command: "help.website", label: "ArtCraft website", url: WEBSITE, icon: "external-link" },
+    Link { command: "help.discord", label: "Report an issue", url: DISCORD, icon: "messages-square" },
+    Link { command: "help.app_page", label: "Project page", url: APP_PAGE, icon: "globe" },
+    Link { command: "help.github", label: "Source code", url: GITHUB, icon: "code-xml" },
+    Link { command: "help.website", label: "Maintainer profile", url: WEBSITE, icon: "external-link" },
 ];
 
 pub fn for_command(id: &str) -> Option<&'static Link> {

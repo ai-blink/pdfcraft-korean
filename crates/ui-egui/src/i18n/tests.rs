@@ -1569,3 +1569,14 @@ fn image_paste_and_home_notifications_are_translated() {
         }
     }
 }
+
+#[test]
+fn fork_support_labels_do_not_reuse_upstream_command_id_translations() {
+    for lang in Lang::all() {
+        set_current(lang);
+        for link in pdfcraft_engine::links::LINKS {
+            assert_eq!(menu_label(link.command, link.label), command_label(link.label));
+        }
+    }
+    set_current(Lang::EN);
+}

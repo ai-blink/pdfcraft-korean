@@ -675,6 +675,11 @@ pub fn command_label(text: &str) -> String {
 /// that keeps the label's shape ([`own_id`]), otherwise [`command_label`] of the current English
 /// label.
 pub fn menu_label(id: &str, label: &str) -> String {
+    // These command IDs predate the fork. Pinned upstream catalogs still associate them
+    // with upstream branding, so translate the fork's current label instead.
+    if pdfcraft_engine::links::for_command(id).is_some() {
+        return command_label(label);
+    }
     let lang = current();
     match own_id(lang, id, label).then(|| lang.i18n().get(lang.lang, "@id", id)).flatten() {
         Some(translated) => translated.to_owned(),

@@ -10,7 +10,7 @@ use craft_update::{CheckResultDialog, CheckResultResponse};
 use crate::PdfCraftApp;
 
 /// Where every PdfCraft release is listed.
-pub const RELEASES_PAGE: &str = "https://github.com/storytold/pdfcraft/releases";
+pub const RELEASES_PAGE: &str = "https://github.com/ai-blink/pdfcraft-korean/releases";
 
 /// Stands in for the network in tests.
 #[cfg(not(target_arch = "wasm32"))]
@@ -144,6 +144,16 @@ pub(crate) fn dialog(app: &mut PdfCraftApp, ctx: &egui::Context) {
 mod tests {
     use super::*;
     use eframe::App as _;
+
+    #[test]
+    fn derivative_updates_cannot_replace_the_app_from_upstream() {
+        let app = crate::UPDATE_APP;
+        assert_eq!(app.repo, "ai-blink/pdfcraft-korean");
+        assert_eq!(app.id, "pdfcraft-korean");
+        assert!(app.former_ids.is_empty());
+        assert!(app.former_names.is_empty());
+        assert_eq!(app.releases_url(), RELEASES_PAGE);
+    }
 
     #[test]
     fn on_exit_calls_the_update_exit_hook_once() {

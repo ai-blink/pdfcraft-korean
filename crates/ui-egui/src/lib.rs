@@ -15,7 +15,13 @@
 pub const UPDATE_APP: craft_update::app::App = craft_update::app::App {
     icon_png: Some(include_bytes!("../../../assets/app-icon/hicolor/128x128/apps/ai.storyteller.pdfcraft.png")),
     accent: Some([0xb7, 0x02, 0x28]),
-    ..craft_update::suite::PDFCRAFT
+    id: "pdfcraft-korean",
+    name: "PdfCraft Korean",
+    tagline: "Korean PDF text editing",
+    repo: "ai-blink/pdfcraft-korean",
+    former_ids: &[],
+    former_names: &[],
+    developer: "@ai-blink",
 };
 
 use crate::control::Host as _;

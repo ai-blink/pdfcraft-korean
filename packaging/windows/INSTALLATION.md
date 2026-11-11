@@ -1,6 +1,6 @@
 # Windows installation policy checks
 
-New installations default to the current account under `Programs\ArtCraft\<App>`.
+New installations default to the current account under `Programs\ai-blink\<App>`.
 The first setup page offers installation for everyone. Scope is selected before duplicate
 checks and directory costing. An update uses the existing context's remembered exact folder;
 `INSTALLFOLDER` supplied explicitly is never replaced. It is a secure MSI property so the
@@ -33,3 +33,15 @@ shortcut/menu behaviour, cancellation, rollback or uninstall. Those still requir
 payload in an authorised clean Windows test environment. Cross-architecture metadata is not
 execution evidence on those architectures. Existing open installer/association PRs must be
 reconciled before publication. Nothing here changes macOS/Linux native packaging conventions.
+
+## Independent Korean fork
+
+This fork uses its own MSI UpgradeCode, component identities, `Software\PdfCraftKorean`
+registration, `pdfcraft-korean.exe` installed filename and `ai-blink\PdfCraft Korean`
+installation folder. It must not upgrade or reuse the official PdfCraft installation.
+The portable build retains the source binary filename `pdfcraft.exe`.
+
+No fork installer has been released or installation-tested. Linux and macOS packaging
+retain upstream package/application identifiers and need separate identity isolation and
+platform-specific installation verification before distributing installers. Source builds
+are intended for isolated testing; this source publication is not an installer release.

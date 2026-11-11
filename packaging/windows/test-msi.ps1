@@ -44,7 +44,7 @@ function Assert-NoRow([string] $Sql, [string] $What) {
 if ($LASTEXITCODE -ne 0) { throw 'Dual-scope installer contract failed.' }
 $Installer.UILevel = 2
 $manufacturer = Read-Row 'SELECT `Value` FROM `Property` WHERE `Property` = ''Manufacturer''' 1
-Assert-Equal $manufacturer[0] 'Learning Machines LLC' 'MSI manufacturer'
+Assert-Equal $manufacturer[0] 'ai-blink' 'MSI manufacturer'
 
 # Embedded craft-fonts must ship their OFL notices; a build without them must not claim any.
 # Check the compiled File table, not only the WiX source, so a staging or component-group mistake
@@ -132,7 +132,7 @@ function Assert-KeptOnUpdate([string] $Property, [string] $Release, [string] $Fo
     if ($session) { [void] [Runtime.InteropServices.Marshal]::FinalReleaseComObject($session) }
   }
 }
-Assert-KeptOnUpdate 'INSTALLDESKTOPSHORTCUT' 'WIX_UPGRADE_DETECTED' 'EXISTINGDESKTOPSHORTCUT' 'C:\Users\Public\Desktop\PdfCraft.lnk' 'PdfcraftDesktopShortcut' 'Desktop shortcut'
+Assert-KeptOnUpdate 'INSTALLDESKTOPSHORTCUT' 'WIX_UPGRADE_DETECTED' 'EXISTINGDESKTOPSHORTCUT' 'C:\Users\Public\Desktop\PdfCraft Korean.lnk' 'PdfcraftDesktopShortcut' 'Desktop shortcut'
 $secure = Read-Row 'SELECT `Value` FROM `Property` WHERE `Property` = ''SecureCustomProperties''' 1
 if (($secure[0] -split ';') -notcontains 'INSTALLDESKTOPSHORTCUT') { throw "INSTALLDESKTOPSHORTCUT is not secure: '$($secure[0])'" }
 $checkbox = Read-Row 'SELECT `Type`, `Property`, `Text` FROM `Control` WHERE `Dialog_` = ''InstallWelcome'' AND `Control` = ''DesktopShortcut''' 3
@@ -188,9 +188,9 @@ if ([int] $remove[0] -le [int] $validate[0] -or [int] $remove[0] -ge [int] $init
 # Image context menu (#190) opens the DPI chooser. Its own component, gated by INSTALLIMAGECONTEXTMENU
 # (on for a first install, kept on update only while present, secure), with the .png label as key
 # path so uninstall removes every row. No image default association is changed.
-$imageKey = 'Software\Classes\SystemFileAssociations\.png\shell\PdfCraft.CreatePdf'
+$imageKey = 'Software\Classes\SystemFileAssociations\.png\shell\PdfCraftKorean.CreatePdf'
 foreach ($ext in @('png', 'jpg', 'jpeg', 'tif', 'tiff', 'gif', 'bmp', 'jp2', 'j2k', 'jpx')) {
-  $key = 'Software\Classes\SystemFileAssociations\.' + $ext + '\shell\PdfCraft.CreatePdf'
+  $key = 'Software\Classes\SystemFileAssociations\.' + $ext + '\shell\PdfCraftKorean.CreatePdf'
   $menu = Read-Row ('SELECT `Value`, `Component_`, `Root` FROM `Registry` WHERE `Key` = ''' + $key + ''' AND `Name` IS NULL') 3
   Assert-Equal $menu[0] 'Create PDF with PdfCraft…' "$ext context menu label"
   Assert-Equal $menu[1] 'PdfcraftImageContextMenu' "$ext context menu component"
@@ -206,7 +206,7 @@ $view = $Database.OpenView('SELECT `Key` FROM `Registry` WHERE `Component_` = ''
 try {
   [void] $view.Execute()
   while ($record = $view.Fetch()) {
-    if ($record.StringData(1) -match 'PdfCraft\.CreatePdf') { throw "image menu row left in PdfcraftApp: $($record.StringData(1))" }
+    if ($record.StringData(1) -match 'PdfCraftKorean\.CreatePdf') { throw "image menu row left in PdfcraftApp: $($record.StringData(1))" }
   }
 } finally { [void] $view.Close() }
 $imageKeyPath = Read-Row ('SELECT `Registry` FROM `Registry` WHERE `Key` = ''' + $imageKey + ''' AND `Name` IS NULL') 1
@@ -223,7 +223,7 @@ if (($secure[0] -split ';') -notcontains 'INSTALLIMAGECONTEXTMENU') { throw "INS
 # checkbox), with its menu value as key path so uninstall removes it. Several selected PDFs each start pdfcraft.exe "%1" (Document), which the
 # single-instance hand-off opens as tabs. The .pdf default is never set, so the user's default app
 # stays.
-$pdfKey = 'Software\Classes\SystemFileAssociations\.pdf\shell\PdfCraft.Edit'
+$pdfKey = 'Software\Classes\SystemFileAssociations\.pdf\shell\PdfCraftKorean.Edit'
 $pdfMenu = Read-Row ('SELECT `Registry`, `Value`, `Component_`, `Root` FROM `Registry` WHERE `Key` = ''' + $pdfKey + ''' AND `Name` IS NULL') 4
 Assert-Equal $pdfMenu[1] 'Edit with PdfCraft' 'PDF context menu label'
 Assert-Equal $pdfMenu[2] 'PdfcraftPdfContextMenu' 'PDF context menu component'
@@ -252,7 +252,7 @@ Assert-NoRow 'SELECT `Registry` FROM `Registry` WHERE `Key` = ''Software\Classes
 # "Combine files in PdfCraft" (#585): in the PDF menu's component, so the one switch covers both
 # verbs. Each selected file starts `pdfcraft --combine "<file>"` (Document), and the running
 # PdfCraft collects them into its Combine files tab.
-$combineKey = 'Software\Classes\SystemFileAssociations\.pdf\shell\PdfCraft.Combine'
+$combineKey = 'Software\Classes\SystemFileAssociations\.pdf\shell\PdfCraftKorean.Combine'
 $combineMenu = Read-Row ('SELECT `Value`, `Component_`, `Root` FROM `Registry` WHERE `Key` = ''' + $combineKey + ''' AND `Name` IS NULL') 3
 Assert-Equal $combineMenu[0] 'Combine files in PdfCraft' 'Combine verb label'
 Assert-Equal $combineMenu[1] 'PdfcraftPdfContextMenu' 'Combine verb component'
